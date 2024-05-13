@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "853700695890",
+    "project_id": "sound-slice",
+    "storage_bucket": "sound-slice.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:853700695890:android:da025f141f7d600a4a8c8b",
+        "android_client_info": {
+          "package_name": "com.example.sound_slice"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "853700695890-7ol57b2uo1sbamp7bggdiqmrtr7ioi8j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDkk9h743XHC0qDrEwysGO3yQL9SZequyk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "853700695890-7ol57b2uo1sbamp7bggdiqmrtr7ioi8j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
