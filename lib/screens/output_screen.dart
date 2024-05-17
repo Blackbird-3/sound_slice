@@ -1,6 +1,10 @@
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:sound_slice/util/utils.dart';
 
 class SeparatedTracksPage extends StatefulWidget {
   final String songName;
@@ -37,20 +41,35 @@ class _SeparatedTracksPageState extends State<SeparatedTracksPage> {
     ];
   }
 
-void _initPlayers() {
-  _audioPlayers = List.generate(
-    _trackUrls.length,
-    (index) => AudioPlayer(),
-  );
+  void _initPlayers() {
+    _audioPlayers = List.generate(
+      _trackUrls.length,
+      (index) => AudioPlayer(),
+    );
 
-  // Load and play each track
-  for (int i = 0; i < _trackUrls.length; i++) {
-    _audioPlayers[i].setUrl(_trackUrls[i], initialPosition: Duration.zero);
-    _audioPlayers[i].setVolume(_volumeValues[i]);
-    _audioPlayers[i].play();
+    // Load and play each track
+    for (int i = 0; i < _trackUrls.length; i++) {
+      _audioPlayers[i].setUrl(_trackUrls[i], initialPosition: Duration.zero);
+      _audioPlayers[i].setVolume(_volumeValues[i]);
+      _audioPlayers[i].play();
+    }
   }
-}
 
+  Future<void> _downloadTrack(String url) async {
+    final httpClient = HttpClient();
+    final request = await httpClient.getUrl(Uri.parse(url));
+    final response = await request.close();
+    final bytes = await consolidateHttpClientResponseBytes(response);
+
+    final directory =
+        await getExternalStorageDirectory(); // Use getExternalStorageDirectory for Android
+    final file = File('${directory!.path}/track.mp3');
+    print(file);
+    await file.writeAsBytes(bytes);
+
+    httpClient.close();
+    showSnackBar('Track downloaded successfully!', context);
+  }
 
   @override
   void dispose() {
@@ -67,6 +86,7 @@ void _initPlayers() {
         title: Text(widget.songName),
       ),
       body: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           // Volume bars
           Padding(
@@ -81,71 +101,79 @@ void _initPlayers() {
             ),
           ),
           // Playback controls
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Play/Pause button
-              IconButton(
-                onPressed: () async {
-                  bool anyPlayerPlaying = _audioPlayers.any((player) =>
-                      player.playing); // Check if any player is already playing
-                  if (anyPlayerPlaying) {
-                    for (final player in _audioPlayers) {
-                      await player.pause();
-                    }
-                  } else {
-                    for (final player in _audioPlayers) {
-                      await player.play();
-                    }
-                  }
-                },
-                icon: StreamBuilder<PlayerState>(
-                  stream: _audioPlayers[0].playerStateStream,
+
+          // Seek bar
+          Container(
+            margin: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color.fromRGBO(111, 37, 156, 1),
+              borderRadius: BorderRadius.circular(10.0),
+            ),
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              children: [
+                StreamBuilder<Duration?>(
+                  stream: _audioPlayers[0].durationStream,
                   builder: (context, snapshot) {
-                    final playing = snapshot.data?.playing ?? false;
-                    return Icon(
-                      playing ? Icons.pause : Icons.play_arrow,
-                      size: 36,
+                    final duration = snapshot.data ?? Duration.zero;
+                    return StreamBuilder<Duration>(
+                      stream: _audioPlayers[0].positionStream,
+                      builder: (context, snapshot) {
+                        final position = snapshot.data ?? Duration.zero;
+                        return Slider(
+                          value: position.inMilliseconds.toDouble(),
+                          onChanged: (value) {
+                            // Pause all players
+                            for (final player in _audioPlayers) {
+                              player.pause();
+                            }
+                            // Seek all players to the selected position
+                            for (final player in _audioPlayers) {
+                              player
+                                  .seek(Duration(milliseconds: value.toInt()));
+                            }
+                            // Resume playback for all players
+                            for (final player in _audioPlayers) {
+                              player.play();
+                            }
+                          },
+                          min: 0,
+                          max: duration.inMilliseconds.toDouble(),
+                          activeColor: Colors.white, // Color of the thumb
+                          inactiveColor: Colors.white30, // Color of the track
+                        );
+                      },
                     );
                   },
                 ),
-              ),
-              // Seek bar
-Expanded(
-  child: StreamBuilder<Duration?>(
-    stream: _audioPlayers[0].durationStream,
-    builder: (context, snapshot) {
-      final duration = snapshot.data ?? Duration.zero;
-      return StreamBuilder<Duration>(
-        stream: _audioPlayers[0].positionStream,
-        builder: (context, snapshot) {
-          final position = snapshot.data ?? Duration.zero;
-          return Slider(
-            value: position.inMilliseconds.toDouble(),
-            onChanged: (value) {
-              // Pause all players
-              for (final player in _audioPlayers) {
-                player.pause();
-              }
-              // Seek all players to the selected position
-              for (final player in _audioPlayers) {
-                player.seek(Duration(milliseconds: value.toInt()));
-              }
-              // Resume playback for all players
-              for (final player in _audioPlayers) {
-                player.play();
-              }
-            },
-            min: 0,
-            max: duration.inMilliseconds.toDouble(),
-          );
-        },
-      );
-    },
-  ),
-),
-
-            ],
+                IconButton(
+                  onPressed: () async {
+                    bool anyPlayerPlaying = _audioPlayers.any((player) => player
+                        .playing); // Check if any player is already playing
+                    if (anyPlayerPlaying) {
+                      for (final player in _audioPlayers) {
+                        await player.pause();
+                      }
+                    } else {
+                      for (final player in _audioPlayers) {
+                        await player.play();
+                      }
+                    }
+                  },
+                  icon: StreamBuilder<PlayerState>(
+                    stream: _audioPlayers[0].playerStateStream,
+                    builder: (context, snapshot) {
+                      final playing = snapshot.data?.playing ?? false;
+                      return Icon(
+                        playing ? Icons.pause : Icons.play_arrow,
+                        size: 36,
+                        color: Colors.white,
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -153,24 +181,37 @@ Expanded(
   }
 
   Widget _buildVolumeBar(String trackName, int index) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Column(
       children: [
-        Text(trackName),
-        SizedBox(width: 16),
-        Expanded(
-          child: Slider(
-            value: _volumeValues[index],
-            onChanged: (value) {
-              setState(() {
-                _volumeValues[index] = value;
-              });
-              _audioPlayers[index].setVolume(value);
-            },
-            min: 0,
-            max: 1.0,
-            divisions: 10,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(25, 2, 18, 2),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(trackName),
+              const SizedBox(width: 16),
+              IconButton(
+                onPressed: () async {
+                  await _downloadTrack(_trackUrls[index]);
+                },
+                icon: const Icon(
+                  Icons.download,
+                ),
+              ),
+            ],
           ),
+        ),
+        Slider(
+          value: _volumeValues[index],
+          onChanged: (value) {
+            setState(() {
+              _volumeValues[index] = value;
+            });
+            _audioPlayers[index].setVolume(value);
+          },
+          min: 0,
+          max: 1.0,
+          divisions: 10,
         ),
       ],
     );

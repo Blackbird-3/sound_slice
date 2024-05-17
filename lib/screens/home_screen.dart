@@ -47,17 +47,11 @@ class _UploadState extends State<Upload> {
       );
       if (result != null) {
         PlatformFile selectedFile = result.files.first;
-        // You can now use the selected file
-        print('File path: ${selectedFile.path}');
-        print('File name: ${selectedFile.name}');
-        print('File size: ${selectedFile.size}');
 
         setState(() {
           file = selectedFile;
           selectedSongName = selectedFile.name;
           selectedSongPath = selectedFile.path!;
-
-          print('File saved now');
         });
 
         await _player.setFilePath((file!.path).toString());
@@ -68,7 +62,7 @@ class _UploadState extends State<Upload> {
       }
     } catch (e) {
       // Handle any exceptions
-      print('Error picking file: $e');
+      showSnackBar('Error picking file: $e', context);
     }
   }
 
@@ -90,14 +84,14 @@ class _UploadState extends State<Upload> {
         String downloadUrl = await taskSnapshot.ref.getDownloadURL();
 
         // Print or use the download URL as needed
-        print('File uploaded successfully. Download URL: $downloadUrl');
+        // print('File uploaded successfully. Download URL: $downloadUrl');
         showSnackBar('Song uploaded succesfully', context);
 
         // Call the function to send the file URL to the API
         // await sendFileToApi(downloadUrl);
         try {
           // Call the function to send the file URL to the API
-          processAudio(downloadUrl , selectedSongName!);
+          processAudio(downloadUrl, selectedSongName!, context);
 
           // Now you can use the separatedTracks data as needed, such as updating the UI
           // print('Separated tracks: $separatedTracksId');
@@ -106,14 +100,14 @@ class _UploadState extends State<Upload> {
           // (Assuming you have a function to navigate to that page)
           // navigateToSeparatedTracksPage();
         } catch (e) {
-          print('Error saving to cloud: $e');
+          showSnackBar('Error saving to cloud: $e', context);
         }
       } else {
         // Handle the case where no file is selected
-        print('No file selected.');
+        showSnackBar('No file selected.', context);
       }
     } catch (e) {
-      print('Error uploading file: $e');
+      showSnackBar('Error uploading file: $e', context);
     }
   }
 
@@ -136,9 +130,18 @@ class _UploadState extends State<Upload> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            Text(
-              'Hello, $name.',
-              style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Text(
+                  'Hello, $name.',
+                  style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold),
+                ),
+                CircleAvatar(
+                  radius: 25,
+                  backgroundImage: AssetImage('assets/logo.png'),
+                ),
+              ],
             ),
             Padding(
               padding: const EdgeInsets.all(8.0),
@@ -190,46 +193,61 @@ class _UploadState extends State<Upload> {
             SizedBox(height: 20.0),
             if (selectedSongName != null)
               Text(
-                'Selected Song: $selectedSongName',
-                style: TextStyle(fontSize: 16.0),
+                '$selectedSongName',
+                style: TextStyle(fontSize: 20.0),
               ),
-            Padding(
+            Container(
+              margin: EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color.fromRGBO(111, 37, 156, 1),
+                borderRadius: BorderRadius.circular(10.0),
+              ),
               padding: const EdgeInsets.all(12.0),
-              child: StreamBuilder<Duration>(
-                stream: _player.positionStream,
-                builder: (context, snapshot) {
-                  final position = snapshot.data ?? Duration.zero;
-                  final duration = _player.duration ?? Duration.zero;
-                  return ProgressBar(
-                    progress: position,
-                    total: duration,
-                    onSeek: (duration) {
-                      _player.seek(duration);
-                    },
-                  );
-                },
-              ),
-            ),
-            StreamBuilder<PlayerState>(
-              stream: _player.playerStateStream,
-              builder: (context, snapshot) {
-                final playbackState = snapshot.data;
-                final playing = playbackState?.playing ?? false;
-                return ElevatedButton(
-                  onPressed: () async {
-                    if (playing) {
-                      await _player.pause();
-                    } else {
-                      await _player.play();
-                    }
-                  },
-                  child: Icon(
-                    playing ? Icons.pause : Icons.play_arrow,
-                    size: 36,
-                    color: secondaryColor,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: StreamBuilder<Duration>(
+                      stream: _player.positionStream,
+                      builder: (context, snapshot) {
+                        final position = snapshot.data ?? Duration.zero;
+                        final duration = _player.duration ?? Duration.zero;
+                        return ProgressBar(
+                          thumbColor: Colors.white,
+                          baseBarColor: Colors.white30,
+                          progressBarColor: Colors.white,
+                          progress: position,
+                          total: duration,
+                          onSeek: (duration) {
+                            _player.seek(duration);
+                          },
+                        );
+                      },
+                    ),
                   ),
-                );
-              },
+                  StreamBuilder<PlayerState>(
+                    stream: _player.playerStateStream,
+                    builder: (context, snapshot) {
+                      final playbackState = snapshot.data;
+                      final playing = playbackState?.playing ?? false;
+                      return ElevatedButton(
+                        onPressed: () async {
+                          if (playing) {
+                            await _player.pause();
+                          } else {
+                            await _player.play();
+                          }
+                        },
+                        child: Icon(
+                          playing ? Icons.pause : Icons.play_arrow,
+                          size: 36,
+                          color: secondaryColor,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 20.0),
             ElevatedButton(
@@ -242,7 +260,6 @@ class _UploadState extends State<Upload> {
                   borderRadius: BorderRadius.circular(4), // Rounded corners
                 ),
                 // shadowColor: Colors.grey[500],
-                
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),

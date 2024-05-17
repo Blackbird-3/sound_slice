@@ -71,23 +71,39 @@ class _MyFilesState extends State<MyFiles> {
           } else {
             final files = snapshot.data ?? [];
             if (files.isEmpty) {
-            return Center(child: Text('No files yet'));
-          }
+              return Center(child: Text('No files yet'));
+            }
             return ListView.builder(
               itemCount: files.length,
+              padding: EdgeInsets.all(5),
               itemBuilder: (context, index) {
                 final songName = files[index];
-                return ListTile(
-                  title: Text(songName),
-                  onTap: () {
-                    // Navigate to SeparatedTracksPage when a song is tapped
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => SeparatedTracksPage(songName: songName),
+                return Container(
+                  margin: EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10.0),
+                    border: Border.all(color: Colors.black.withOpacity(.1)),
+                    boxShadow: [
+                      BoxShadow(
+                        blurRadius: 5,
+                        color: Colors.black.withOpacity(.1),
                       ),
-                    );
-                  },
+                    ],
+                  ),
+                  child: ListTile(
+                    title: Text(songName),
+                    onTap: () {
+                      // Navigate to SeparatedTracksPage when a song is tapped
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              SeparatedTracksPage(songName: songName),
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
             );

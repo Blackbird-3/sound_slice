@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:sound_slice/screens/files.dart';
 
 const String apiUrl = 'https://api.replicate.com/v1/predictions';
-const String replicateApiToken = 'r8_UOGrwZElTeaG9kL0S40gAuG5ohDS0Ly1OtLzj';
-
+const String replicateApiToken = 'r8_6YUuuOhl74I4WYqhE8l7CdEkYA0O1EG1VdLDp';
+// const String replicateApiToken = 'r8_GHqPMAolqEJF9xqEEw7vaXWn3YpP6Oy0LD5y4';
 
 Future<String> fetchSeparatedTracks(String audioUrl, String songName) async {
   final Map<String, dynamic> requestData = {
@@ -54,7 +56,8 @@ Future<Map<String, dynamic>> checkStatusAndGetResults(
   }
 }
 
-void processAudio(String audioUrl, String songName) async {
+void processAudio(
+    String audioUrl, String songName, BuildContext context) async {
   try {
     // Start processing audio and get the prediction ID
     String predictionId = await fetchSeparatedTracks(audioUrl, songName);
@@ -71,7 +74,7 @@ void processAudio(String audioUrl, String songName) async {
 
       if (status == 'starting' || status == 'processing') {
         // Sleep for some time before checking again (e.g., 5 seconds)
-        await Future.delayed(Duration(seconds: 5));
+        await Future.delayed(const Duration(seconds: 5));
       } else if (status == 'succeeded') {
         // Process succeeded, get separated audio URLs
         Map<String, dynamic> separatedAudioUrls = result['output'];
@@ -85,11 +88,12 @@ void processAudio(String audioUrl, String songName) async {
         String uid = FirebaseAuth.instance.currentUser!.uid;
         String filePath = 'users/$uid/audio/$songName';
 
-        storeSeparatedAudioUrlsInFirebase(separatedAudioUrlsString, filePath);
+        storeSeparatedAudioUrlsInFirebase(
+            separatedAudioUrlsString, filePath, context);
         // Handle the separated audio URLs (e.g., display them in your app)
         print('Separated audio URLs: $separatedAudioUrlsString');
       } else {
-        print(status);
+        // print(status);
         // Process failed
         String errorMessage = result['error'] ?? 'Unknown error';
         print('Processing failed: $errorMessage');
@@ -104,9 +108,11 @@ void processAudio(String audioUrl, String songName) async {
   }
 }
 
-
 // Function to store the separated audio URLs in Firebase Storage
-Future<void> storeSeparatedAudioUrlsInFirebase(Map<String, String?> separatedAudioUrls, String parentFilePath) async {
+Future<void> storeSeparatedAudioUrlsInFirebase(
+    Map<String, String?> separatedAudioUrls,
+    String parentFilePath,
+    BuildContext context) async {
   try {
     // Extract URLs for bass, drums, other, and vocals
     String? bassUrl = separatedAudioUrls['bass'];
@@ -117,8 +123,10 @@ Future<void> storeSeparatedAudioUrlsInFirebase(Map<String, String?> separatedAud
     // Create a list of URLs to process
     List<String?> urlsToProcess = [bassUrl, drumsUrl, otherUrl, vocalsUrl];
 
+    int successfulUploads = 0;
     // Iterate over the URLs and store them in Firebase Storage
-    await Future.forEach(urlsToProcess.where((url) => url != null), (url) async {
+    await Future.forEach(urlsToProcess.where((url) => url != null),
+        (url) async {
       // Download the audio file
       http.Response response = await http.get(Uri.parse(url!));
       Uint8List bytes = Uint8List.fromList(response.bodyBytes);
@@ -133,9 +141,16 @@ Future<void> storeSeparatedAudioUrlsInFirebase(Map<String, String?> separatedAud
       try {
         Reference ref = FirebaseStorage.instance.ref().child(filePath);
         UploadTask uploadTask = ref.putData(bytes);
-        await uploadTask.whenComplete(() => null);
+        await uploadTask.whenComplete(() {
+          successfulUploads++;
+          print('File uploaded successfully to $filePath');
 
-        print('File uploaded successfully to $filePath');
+          // Check if all four files are uploaded
+          if (successfulUploads == 4) {
+            // All files uploaded, send notification to user
+            showSnackbar(context, 'Song separated successfully!');
+          }
+        });
       } catch (e) {
         print('Error uploading file to Firebase Storage: $e');
         // Handle any errors during upload
@@ -145,6 +160,26 @@ Future<void> storeSeparatedAudioUrlsInFirebase(Map<String, String?> separatedAud
     print('Error storing separated audio URLs in Firebase Storage: $e');
     // Handle any errors
   }
+}
+
+void showSnackbar(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(message),
+      duration: Duration(days: 1), // Set duration to a long time
+      action: SnackBarAction(
+        label: 'OK',
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MyFiles(),
+            ),
+          );
+        },
+      ),
+    ),
+  );
 }
 
 
